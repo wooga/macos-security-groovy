@@ -1,7 +1,7 @@
 macos-security-groovy
 =====================
 
-[![Coverage Status](https://coveralls.io/repos/github/wooga/macos-security-groovy/badge.svg?branch=master)](https://coveralls.io/github/wooga/macos-security-groovy?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/wooga/macos-security.groovy/badge.svg?branch=master)](https://coveralls.io/github/wooga/macos-security.groovy?branch=master)
 
 A small helper library to work with the macOS security tool through groovy.
 
