@@ -134,5 +134,8 @@ signing {
     sign publishing.publications.main
 }
 
-postRelease.dependsOn("publish")
+postRelease.dependsOn(tasks.publish)
+tasks."final".dependsOn(tasks.closeAndReleaseRepository)
+tasks."candidate".dependsOn(tasks.closeAndReleaseRepository)
+tasks.closeAndReleaseRepository.mustRunAfter(tasks.postRelease)
 tasks.publish.mustRunAfter(tasks.release)
