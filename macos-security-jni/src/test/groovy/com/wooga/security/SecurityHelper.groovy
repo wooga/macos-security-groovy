@@ -21,8 +21,71 @@ class SecurityHelper {
         ["security", "create-keychain", "-p", password, location.path].execute().waitFor()
     }
 
+    static def lockKeychain(File location) {
+        ["security", "lock-keychain", location.path].execute().waitFor()
+    }
+
     static def unlockKeychain(File location, String password) {
         ["security", "unlock-keychain", "-p", password, location.path].execute().waitFor()
+    }
+
+    static def setKeychainSettings(File location, boolean lockOnSleep = false, int timeout = 0) {
+        def args = ["security", "set-keychain-settings"]
+        if (lockOnSleep) {
+            args << "-l"
+        }
+        if (timeout > 0) {
+            args << "-t" << timeout.toString()
+        }
+        args << location.path
+        args.execute().waitFor()
+    }
+
+    static File getDefaultKeychain(Domain preferenceDomain = null) {
+        def args = ["security", "default-keychain"]
+        if(preferenceDomain) {
+            args << "-d" << preferenceDomain.toString()
+        }
+        def p = args.execute()
+        def out = new StringBuffer()
+        def err = new StringBuffer()
+        p.consumeProcessOutput(out, err)
+        if (p.waitFor() == 0) {
+            return new File(out.toString().trim().replaceAll('"', ''))
+        }
+        null
+    }
+
+    static void unsetDefaultKeychain() {
+        setDefaultKeychain(null)
+    }
+
+    static void setDefaultKeychain(File keychain, Domain preferenceDomain = null) {
+        def args = ["security", "default-keychain"]
+        if(preferenceDomain) {
+            args << "-d" << preferenceDomain.toString()
+        }
+        args << "-s"
+        if (keychain) {
+            args << keychain.absolutePath
+        }
+
+        args.execute().waitFor()
+    }
+
+    static List<File> getKeychainSearchList(Domain preferenceDomain = null) {
+        def args = ["security", "list-keychain"]
+        if(preferenceDomain) {
+            args << "-d" << preferenceDomain.toString()
+        }
+        def p = args.execute()
+        def out = new StringBuffer()
+        def err = new StringBuffer()
+        p.consumeProcessOutput(out, err)
+        if (p.waitFor() == 0) {
+            return out.readLines().collect {new File(it.toString().trim().replaceAll('"', ''))}
+        }
+        []
     }
 
     static String getKeychainSettingsRaw(File location) {
@@ -106,11 +169,11 @@ class SecurityHelper {
     }
 
     static void addGenericPassword(File location, String account, String service, String password) {
-        ["security", "add-generic-password", "-a", account, "-s", service, "-w", password, location.path].execute().waitFor()
+        ["security", "add-generic-password", "-a", account, "-s", service, "-w", password, "-A", location.path].execute().waitFor()
     }
 
     static void addInternetPassword(File location, String account, String server, String password) {
-        ["security", "add-internet-password", "-a", account, "-s", server, "-w", password, location.path].execute().waitFor()
+        ["security", "add-internet-password", "-a", account, "-s", server, "-w", password, "-A", location.path].execute().waitFor()
     }
 
     static String findCertificate(File location, Map<String, String> queryArgs) {
