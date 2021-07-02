@@ -32,7 +32,7 @@ repositories {
 
 dependencies {
     testImplementation "org.codehaus.groovy:groovy-all:2.4.15"
-    testImplementation "org.spockframework:spock-core:1.2-groovy-2.4"
+    testImplementation "org.spockframework:spock-core:2.0-groovy-3.0"
     testImplementation 'com.github.stefanbirkner:system-rules:1.18.0'
 }
 

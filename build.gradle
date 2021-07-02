@@ -44,7 +44,7 @@ dependencies {
     api project(":macos-security-jni")
     implementation 'org.codehaus.groovy:groovy-all:2.4.15'
     testImplementation 'com.github.stefanbirkner:system-rules:1.19.0'
-    testImplementation 'org.spockframework:spock-core:1.2-groovy-2.4'
+    testImplementation 'org.spockframework:spock-core:2.0-groovy-3.0'
 }
 
 repositories {
