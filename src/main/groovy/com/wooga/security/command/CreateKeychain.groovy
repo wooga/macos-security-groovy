@@ -55,7 +55,7 @@ class CreateKeychain extends SecurityCommand<MacOsKeychain> {
 
     @Override
     protected MacOsKeychain convertResult(String output) {
-        new MacOsKeychain(location, password)
+        MacOsKeychain.open(location, password)
     }
 
     @Override

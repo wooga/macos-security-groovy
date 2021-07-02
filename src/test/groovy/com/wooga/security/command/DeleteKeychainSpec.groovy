@@ -67,7 +67,7 @@ class DeleteKeychainSpec extends SecurityCommandSpec<DeleteKeychain> {
     def "deletes single keychain with MacOsKeychain"() {
         given: "a keychain"
         def (File location, String password) = testKeychains.first()
-        def k = new MacOsKeychain(location, password)
+        def k = MacOsKeychain.open(location, password)
         command.withKeychain(k)
 
         when:

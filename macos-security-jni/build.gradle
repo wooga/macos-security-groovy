@@ -1,0 +1,39 @@
+plugins {
+    id 'dev.nokee.jni-library'
+    id 'dev.nokee.c-language'
+    id 'dev.nokee.xcode-ide'
+    id 'java'
+    id 'groovy'
+}
+
+library {
+    targetMachines = [ machines.macOS ]
+    dependencies {
+        //nativeLinkOnly 'dev.nokee.framework:Foundation:latest.release'
+        //nativeLinkOnly 'dev.nokee.framework:Security:latest.release'
+    }
+
+    variants.configureEach {
+        sharedLibrary {
+            compileTasks.configureEach {
+                compilerArgs.addAll('-g')
+            }
+            linkTask.configure {
+                linkerArgs.addAll('-mmacosx-version-min=10.7', '-stdlib=libc++')
+                linkerArgs.addAll('-framework', 'Foundation', '-framework', 'Security')
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation "org.codehaus.groovy:groovy-all:2.4.15"
+    testImplementation "org.spockframework:spock-core:1.2-groovy-2.4"
+    testImplementation 'com.github.stefanbirkner:system-rules:1.18.0'
+}
+
+apply from: '../publish-helper.gradle'

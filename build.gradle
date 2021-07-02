@@ -25,10 +25,13 @@ plugins {
     id 'jacoco'
     id 'com.github.kt3k.coveralls' version '2.8.2'
     id 'io.codearte.nexus-staging' version '0.22.0'
-    id "de.marcphilipp.nexus-publish" version "0.4.0"
+    id "io.github.gradle-nexus.publish-plugin" version "1.0.0"
 }
 
-group "com.wooga.security"
+allprojects {
+    group "com.wooga.security"
+}
+
 
 List<String> cliTasks = project.rootProject.gradle.startParameter.taskNames
 if (cliTasks.contains("rc")) {
@@ -38,6 +41,7 @@ if (cliTasks.contains("rc")) {
 }
 
 dependencies {
+    api project(":macos-security-jni")
     implementation 'org.codehaus.groovy:groovy-all:2.4.15'
     testImplementation 'com.github.stefanbirkner:system-rules:1.18.0'
     testImplementation 'org.spockframework:spock-core:1.2-groovy-2.4'
@@ -47,22 +51,6 @@ repositories {
     mavenCentral()
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
-
-javadoc.failOnError = false
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
-    from javadoc.destinationDir
-}
-
-artifacts {
-    archives sourcesJar
-    archives javadocJar
-}
-
 jacocoTestReport {
     reports {
         xml.enabled = true // coveralls plugin depends on xml format report
@@ -70,72 +58,23 @@ jacocoTestReport {
     }
 }
 
-publishing {
-    publications {
-        main(MavenPublication) {
-            artifactId = project.name
-            from(components["java"])
-            artifact sourcesJar {
-                classifier "sources"
-            }
-            artifact javadocJar {
-                classifier "javadoc"
-            }
-            pom {
-                name = 'macOS keychain helper library'
-                description = 'A helper library to work with the macOS keychain.'
-                url = 'https://github.com/wooga/macos-security.groovy'
-
-                artifactId = project.name
-                inceptionYear = "2021"
-
-                scm {
-                    connection = 'scm:git:https://github.com/wooga/macos-security.groovy.git'
-                    developerConnection = 'scm:git:https://github.com/wooga/macos-security.groovy.git'
-                    url = 'https://github.com/wooga/macos-security.groovy.git'
-                }
-
-                licenses {
-                    license {
-                        name = 'The Apache License, Version 2.0'
-                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'manfred.endres'
-                        name = 'Manfred Endres'
-                        email = 'manfred.endres@wooga.net'
-                    }
-                }
-            }
+nexusPublishing {
+    repositories {
+        sonatype {
+            username = project.hasProperty('ossrhUsername') ? project.property('ossrhUsername') : System.getenv('OSSRH_USERNAME')
+            password = project.hasProperty('ossrhPassword') ? project.property('ossrhPassword') : System.getenv('OSSRH_PASSWORD')
         }
     }
 }
 
-nexusPublishing {
-    repositories {
-        sonatype()
-    }
-}
-
-nexusStaging {
-    username = project.hasProperty('ossrhUsername') ? project.property('ossrhUsername') : System.getenv('OSSRH_USERNAME')
-    password = project.hasProperty('ossrhPassword') ? project.property('ossrhPassword') : System.getenv('OSSRH_PASSWORD')
-    packageGroup = "com.wooga"
-}
-
-signing {
-    def signingKeyId = project.hasProperty("signingKeyId") ? project.property('signingKeyId') : System.getenv('OSSRH_SIGNING_KEY_ID')
-    def signingKey = project.hasProperty("signingKey") ? project.property('signingKey') : System.getenv('OSSRH_SIGNING_KEY')
-    def signingPassword = project.hasProperty('signingPassphrase') ? project.property('signingPassphrase') : System.getenv("OSSRH_SIGNING_PASSPHRASE")
-    useInMemoryPgpKeys(signingKeyId.toString(), signingKey.toString(), signingPassword.toString())
-    sign publishing.publications.main
-}
-
 postRelease.dependsOn(tasks.publish)
-tasks."final".dependsOn(tasks.closeAndReleaseRepository)
-tasks."candidate".dependsOn(tasks.closeAndReleaseRepository)
-tasks.closeAndReleaseRepository.mustRunAfter(tasks.postRelease)
-tasks.publish.mustRunAfter(tasks.release)
+
+afterEvaluate {
+    tasks."final".dependsOn(tasks.publishToSonatype, tasks.closeAndReleaseSonatypeStagingRepository)
+    tasks."candidate".dependsOn(tasks.publishToSonatype, tasks.closeAndReleaseSonatypeStagingRepository)
+    tasks.publishToSonatype.mustRunAfter(tasks.postRelease)
+    tasks.closeSonatypeStagingRepository.mustRunAfter(tasks.publishToSonatype)
+    tasks.publish.mustRunAfter(tasks.release)
+}
+
+apply from: 'publish-helper.gradle'
