@@ -18,6 +18,7 @@ package com.wooga.security.command
 
 import com.wooga.security.Domain
 
+
 class LoginKeychain extends SecurityCommand<File> implements KeychainCommand<LoginKeychain> {
     String command = "login-keychain"
 

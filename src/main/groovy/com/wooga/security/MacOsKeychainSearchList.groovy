@@ -16,16 +16,13 @@
 
 package com.wooga.security
 
-import com.wooga.security.command.DefaultKeychain
-import com.wooga.security.command.ListKeychains
+class MacOsKeychainSearchList implements List<KeychainRef>, Set<KeychainRef> {
 
-class MacOsKeychainSearchList implements List<File>, Set<File> {
+    private class KeychainSearchListIterator implements Iterator<KeychainRef> {
+        private Iterator<KeychainRef> innerIterator
+        private KeychainRef current
 
-    private class KeychainSearchListIterator implements Iterator<File> {
-        private Iterator<File> innerIterator
-        private File current
-
-        KeychainSearchListIterator(Iterator<File> innerIterator) {
+        KeychainSearchListIterator(Iterator<KeychainRef> innerIterator) {
             this.innerIterator = innerIterator
         }
 
@@ -35,7 +32,7 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         }
 
         @Override
-        File next() {
+        KeychainRef next() {
             current = innerIterator.next()
             return current
         }
@@ -46,11 +43,11 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         }
     }
 
-    private class KeychainLookupListIterator implements ListIterator<File> {
-        private ListIterator<File> innerIterator
-        private File current
+    private class KeychainLookupListIterator implements ListIterator<KeychainRef> {
+        private ListIterator<KeychainRef> innerIterator
+        private KeychainRef current
 
-        KeychainLookupListIterator(ListIterator<File> innerIterator) {
+        KeychainLookupListIterator(ListIterator<KeychainRef> innerIterator) {
             this.innerIterator = innerIterator
         }
 
@@ -60,7 +57,7 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         }
 
         @Override
-        File next() {
+        KeychainRef next() {
             current = innerIterator.next()
             return current
         }
@@ -76,7 +73,7 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         }
 
         @Override
-        File previous() {
+        KeychainRef previous() {
             current = innerIterator.previous()
             return current
         }
@@ -92,28 +89,28 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         }
 
         @Override
-        void set(File file) {
+        void set(KeychainRef file) {
             throw new UnsupportedOperationException()
         }
 
         @Override
-        void add(File file) {
+        void add(KeychainRef file) {
             throw new UnsupportedOperationException()
         }
     }
 
     private final Domain domain
 
-    MacOsKeychainSearchList(Domain domain = null) {
+    MacOsKeychainSearchList(Domain domain = Domain.user) {
         this.domain = domain
     }
 
-    private static List<File> listKeychains(Domain domain) {
-        new ListKeychains().withDomain(domain).execute()
+    private static List<KeychainRef> listKeychains(Domain domain) {
+        KeychainRef.listKeychains(domain)
     }
 
-    private static void setKeychains(Iterable<File> keychains, Domain domain) {
-        new ListKeychains().withDomain(domain).withKeychains(keychains).setKeychainSearchList().execute()
+    private static void setKeychains(List<KeychainRef> keychains, Domain domain) {
+        KeychainRef.setKeychainList(domain, keychains)
     }
 
     @Override
@@ -130,16 +127,16 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     boolean contains(Object o) {
         Objects.requireNonNull(o)
 
-        if (!File.isInstance(o)) {
-            throw new ClassCastException("expect object of type java.io.File")
+        if (!KeychainRef.isInstance(o)) {
+            throw new ClassCastException("expect object of type ${KeychainRef.name}")
         }
 
-        File keychain = o as File
-        listKeychains(domain).contains(canonical(keychain))
+        KeychainRef keychain = o as KeychainRef
+        listKeychains(domain).contains(keychain)
     }
 
     @Override
-    Iterator<File> iterator() {
+    Iterator<KeychainRef> iterator() {
         new KeychainSearchListIterator(listKeychains(domain).iterator())
     }
 
@@ -154,9 +151,8 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     }
 
     @Override
-    boolean add(File keychain) {
+    boolean add(KeychainRef keychain) {
         Objects.requireNonNull(keychain)
-        keychain = canonical(keychain)
         def keychains = listKeychains(domain)
         if (!keychains.contains(keychain) && keychains.add(keychain)) {
             setKeychains(keychains, domain)
@@ -169,11 +165,11 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     boolean remove(Object o) {
         Objects.requireNonNull(o)
 
-        if (!File.isInstance(o)) {
-            throw new ClassCastException("expect object of type java.io.File")
+        if (!KeychainRef.isInstance(o)) {
+            throw new ClassCastException("expect object of type ${KeychainRef.name}")
         }
 
-        File k = canonical(o as File)
+        KeychainRef k = o as KeychainRef
         def keychains = listKeychains(domain)
         if (keychains.remove(k)) {
             setKeychains(keychains, domain)
@@ -186,17 +182,20 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     boolean containsAll(Collection<?> c) {
         Objects.requireNonNull(c as Object)
         def keychains = c.collect {
-            if (!File.isInstance(it)) {
-                throw new ClassCastException("expect object of type java.io.File")
+            if (!KeychainRef.isInstance(it)) {
+                throw new ClassCastException("expect object of type ${KeychainRef.name}")
             }
-            canonical(it as File)
+            it as KeychainRef
         }
         listKeychains(domain).containsAll(keychains)
     }
 
     @Override
-    boolean addAll(Collection<? extends File> c) {
+    boolean addAll(Collection<? extends KeychainRef> c) {
         Objects.requireNonNull(c)
+//        if(c.any {it == null }){
+//            throw new NullPointerException("found null object in collection")
+//        }
         def keychains = listKeychains(domain)
         if (keychains.addAll(c)) {
             setKeychains(keychains, domain)
@@ -206,7 +205,7 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     }
 
     @Override
-    boolean addAll(int index, Collection<? extends File> c) {
+    boolean addAll(int index, Collection<? extends KeychainRef> c) {
         throw new UnsupportedOperationException()
     }
 
@@ -214,14 +213,14 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     boolean removeAll(Collection<?> c) {
         Objects.requireNonNull(c as Object)
         def keychainsToRemove = c.collect {
-            if (!File.isInstance(it)) {
-                throw new ClassCastException("expect object of type java.io.File")
+            if (!KeychainRef.isInstance(it)) {
+                throw new ClassCastException("expect object of type ${KeychainRef.name}")
             }
-            canonical(it as File)
+            it as KeychainRef
         }
         def keychains = listKeychains(domain)
         def result = keychains.removeAll(keychainsToRemove)
-        new ListKeychains().withDomain(domain).withKeychains(keychains).setKeychainSearchList().execute()
+        setKeychains(keychains, domain)
         result
     }
 
@@ -240,22 +239,22 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     }
 
     @Override
-    File get(int index) {
+    KeychainRef get(int index) {
         listKeychains(domain).get(index)
     }
 
     @Override
-    File set(int index, File element) {
+    KeychainRef set(int index, KeychainRef element) {
         throw new UnsupportedOperationException()
     }
 
     @Override
-    void add(int index, File element) {
+    void add(int index, KeychainRef element) {
         throw new UnsupportedOperationException()
     }
 
     @Override
-    File remove(int index) {
+    KeychainRef remove(int index) {
         throw new UnsupportedOperationException()
     }
 
@@ -263,53 +262,53 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     int indexOf(Object o) {
         Objects.requireNonNull(o)
 
-        if (!File.isInstance(o)) {
-            throw new ClassCastException("expect object of type java.io.File")
+        if (!KeychainRef.isInstance(o)) {
+            throw new ClassCastException("expect object of type ${KeychainRef.name}")
         }
 
-        listKeychains(domain).indexOf(canonical(o as File))
+        listKeychains(domain).indexOf(o as KeychainRef)
     }
 
     @Override
     int lastIndexOf(Object o) {
         Objects.requireNonNull(o)
 
-        if (!File.isInstance(o)) {
-            throw new ClassCastException("expect object of type java.io.File")
+        if (!KeychainRef.isInstance(o)) {
+            throw new ClassCastException("expect object of type ${KeychainRef.name}")
         }
 
-        listKeychains(domain).lastIndexOf(canonical(o as File))
+        listKeychains(domain).lastIndexOf(o as KeychainRef)
     }
 
     @Override
-    ListIterator<File> listIterator() {
+    ListIterator<KeychainRef> listIterator() {
         listIterator(0)
     }
 
     @Override
-    ListIterator<File> listIterator(int index) {
+    ListIterator<KeychainRef> listIterator(int index) {
         new KeychainLookupListIterator(listKeychains(domain).listIterator(index))
     }
 
     @Override
-    List<File> subList(int fromIndex, int toIndex) {
+    List<KeychainRef> subList(int fromIndex, int toIndex) {
         listKeychains(domain).subList(fromIndex, toIndex)
     }
 
-    File getLoginKeyChain() {
+    KeychainRef getLoginKeyChain() {
         getLoginKeyChain(domain)
     }
 
-    File getDefaultKeyChain() {
+    KeychainRef getDefaultKeyChain() {
         getDefaultKeyChain(domain)
     }
 
-    static File getLoginKeyChain(Domain domain) {
-        new DefaultKeychain().withDomain(domain).execute()
+    static KeychainRef getLoginKeyChain(Domain domain) {
+        KeychainRef.defaultKeychain()
     }
 
-    static File getDefaultKeyChain(Domain domain) {
-        new DefaultKeychain().withDomain(domain).execute()
+    static KeychainRef getDefaultKeyChain(Domain domain) {
+        KeychainRef.defaultKeychain(domain)
     }
 
     static String expandPath(String path) {
@@ -325,16 +324,5 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
 
     static File canonical(File keychain) {
         expandPath(keychain).canonicalFile
-    }
-
-    static void resetKeychains(Domain domain = Domain.user) {
-        def rawValue = System.getenv().get("ATLAS_BUILD_UNITY_IOS_DEFAULT_KEYCHAINS")
-        def defaultKeyChains
-        if (rawValue) {
-            defaultKeyChains = rawValue.split(File.pathSeparator).collect { canonical(new File(it)) }
-        } else {
-            defaultKeyChains = [getLoginKeyChain(domain), getDefaultKeyChain(domain)].unique()
-        }
-        setKeychains(defaultKeyChains, domain)
     }
 }

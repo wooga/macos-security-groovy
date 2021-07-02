@@ -53,7 +53,7 @@ class CreateKeychainSpec extends SecurityCommandSpec<CreateKeychain> {
         k != null
         MacOsKeychain.isInstance(k)
         k.exists()
-        k.location == testKeychainLocation
+        k.location == testKeychainLocation.canonicalFile
         k.password == keychainPassword
     }
 

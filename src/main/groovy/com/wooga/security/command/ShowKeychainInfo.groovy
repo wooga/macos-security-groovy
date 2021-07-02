@@ -46,6 +46,13 @@ class ShowKeychainInfo extends SecurityCommand<MacOsKeychainSettings> {
 
     @Override
     protected MacOsKeychainSettings convertResult(String output) {
-        MacOsKeychainSettings.fromOutput(output)
+        Boolean lockWhenSystemSleep = output.contains("lock-on-sleep")
+        Integer timeout = -1
+        def m = (output.trim() =~ /.*timeout=(\d+)s.*/)
+        if (m.matches()) {
+            timeout = Integer.parseInt(m.group(1))
+        }
+
+        new MacOsKeychainSettings(lockWhenSystemSleep, timeout)
     }
 }

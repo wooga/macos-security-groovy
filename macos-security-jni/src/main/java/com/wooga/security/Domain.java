@@ -14,8 +14,26 @@
  * limitations under the License.
  */
 
-package com.wooga.security
+package com.wooga.security;
 
-enum Domain {
-    user, system, common, dynamic
+public enum Domain {
+    /**
+     * user domain
+     */
+    user,
+
+    /**
+     * system (daemon) domain
+     */
+    system,
+
+    /**
+     * preferences to be merged to everyone
+     */
+    common,
+
+    /**
+     * dynamic searchlist (typically removable keychains like smartcards)
+     */
+    dynamic
 }

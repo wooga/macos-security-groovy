@@ -16,13 +16,14 @@
 
 package com.wooga.security
 
+
 import org.junit.Rule
 import org.junit.contrib.java.lang.system.EnvironmentVariables
 import org.junit.contrib.java.lang.system.ProvideSystemProperty
 import spock.lang.*
 import spock.util.environment.RestoreSystemProperties
 
-@Requires({ os.macOs && env['ATLAS_BUILD_UNITY_IOS_EXECUTE_KEYCHAIN_SPEC'] == 'YES' })
+@Requires({ os.macOs })
 @RestoreSystemProperties
 class MacOsKeychainSearchListSpec extends Specification {
 
@@ -38,20 +39,18 @@ class MacOsKeychainSearchListSpec extends Specification {
     @Rule
     public final EnvironmentVariables environmentVariables = new EnvironmentVariables()
 
+    List<KeychainRef> keychainRefsBefore
+
     def setup() {
         newHome.mkdirs()
-        MacOsKeychainSearchList.resetKeychains()
+        keychainRefsBefore = KeychainRef.listKeychains()
     }
 
     def cleanup() {
-        MacOsKeychainSearchList.resetKeychains()
+        KeychainRef.setKeychainList(keychainRefsBefore)
     }
 
-    def cleanupSpec() {
-        MacOsKeychainSearchList.resetKeychains()
-    }
-
-    File createTestKeychainFromPath(String path) {
+    KeychainRef createTestKeychainFromPath(String path) {
         if (path.startsWith("~" + File.separator)) {
             path = System.getProperty("user.home") + path.substring(1)
         }
@@ -59,12 +58,11 @@ class MacOsKeychainSearchListSpec extends Specification {
         createTestKeychain(f.name, f.parentFile)
     }
 
-    File createTestKeychain(String fileName, File baseDir = File.createTempDir()) {
+    KeychainRef createTestKeychain(String fileName, File baseDir = File.createTempDir()) {
         fileName = fileName.endsWith(".keychain") ? fileName : "${fileName}.keychain"
         def keychain = new File(baseDir, fileName)
         baseDir.mkdirs()
-        keychain << "A test keychain file mock"
-        keychain
+        KeychainRef.open(keychain.absoluteFile)
     }
 
     def "populated list has size != 0"() {
@@ -141,7 +139,7 @@ class MacOsKeychainSearchListSpec extends Specification {
         assert subject.size() == initialSize + 1
 
         when:
-        def result = subject.add(new File(fileToAdd))
+        def result = subject.add(KeychainRef.open(new File(fileToAdd)))
 
         then:
         !result
@@ -190,7 +188,7 @@ class MacOsKeychainSearchListSpec extends Specification {
 
     def "set(int,File) throws UnsupportedOperationException"() {
         when:
-        subject.set(0, new File('some/file'))
+        subject.set(0, KeychainRef.open('some/file'))
 
         then:
         thrown(UnsupportedOperationException)
@@ -198,7 +196,7 @@ class MacOsKeychainSearchListSpec extends Specification {
 
     def "add(int,File) throws UnsupportedOperationException"() {
         when:
-        subject.add(0, new File('some/file'))
+        subject.add(0, KeychainRef.open('some/file'))
 
         then:
         thrown(UnsupportedOperationException)
@@ -214,7 +212,7 @@ class MacOsKeychainSearchListSpec extends Specification {
 
     def "addAll(int, Collection<? extends File>) throws UnsupportedOperationException"() {
         when:
-        subject.addAll(0, [new File('some/file')])
+        subject.addAll(0, [KeychainRef.open('some/file')])
 
         then:
         thrown(UnsupportedOperationException)
@@ -271,7 +269,7 @@ class MacOsKeychainSearchListSpec extends Specification {
 
     def "containsAll throws ClassCastException when one or more objects in list are not of type java.io.File"() {
         when:
-        subject.containsAll([new File('some/file'), "a String"])
+        subject.containsAll([KeychainRef.open('some/file'), "a String"])
 
         then:
         thrown(ClassCastException)
@@ -287,7 +285,7 @@ class MacOsKeychainSearchListSpec extends Specification {
 
     def "toArray throws ArrayStoreException when object is not a java.io.File[] array"() {
         given: "lookup list with multiple entries"
-        subject.add(new File("~/path/to/test.keychain"))
+        subject.add(KeychainRef.open("~/path/to/test.keychain"))
 
         when:
         subject.toArray(new String[0])
@@ -300,11 +298,11 @@ class MacOsKeychainSearchListSpec extends Specification {
     def "contains checks if resolved path are equal when #message"() {
         given: "lookup list with one entry"
         def initialSize = subject.size()
-        subject.add(new File("~/path/to/test.keychain"))
+        subject.add(KeychainRef.open("~/path/to/test.keychain"))
         assert subject.size() == initialSize + 1
 
         expect:
-        subject.contains(new File(fileToCheck))
+        subject.contains(KeychainRef.open(fileToCheck))
 
         where:
         fileToCheck                                     | message
@@ -323,34 +321,14 @@ class MacOsKeychainSearchListSpec extends Specification {
         assert subject.size() == initialSize + 3
 
         expect:
-        subject.containsAll(check) == expectedValue
+        subject.containsAll(check.collect { KeychainRef.open(it) }) == expectedValue
 
         where:
-        check                                                                       || expectedValue
-        [new File("~/path/to/test.keychain")]                                       || true
-        [new File("~/path/to/test.keychain"), new File("~/path/to/test2.keychain")] || true
-        [new File("~/path/to/test.keychain"), new File("~/path/to/test4.keychain")] || false
-        [new File("~/path/to/test4.keychain")]                                      || false
-    }
-
-    @Unroll
-    def "clear resets keychain"() {
-        given: "lookup list with multiple entries"
-        def initialSize = subject.size()
-        subject.add(createTestKeychainFromPath("~/path/to/test.keychain"))
-        subject.add(createTestKeychainFromPath("~/path/to/test2.keychain"))
-        subject.add(createTestKeychainFromPath("~/path/to/test3.keychain"))
-        assert subject.size() == initialSize + 3
-
-        when:
-        subject.clear()
-
-        then:
-        !subject.isEmpty()
-        subject.size() == initialSize
-        !subject.contains(MacOsKeychainSearchList.canonical(new File("~/path/to/test.keychain")))
-        !subject.contains(MacOsKeychainSearchList.canonical(new File("~/path/to/test2.keychain")))
-        !subject.contains(MacOsKeychainSearchList.canonical(new File("~/path/to/test3.keychain")))
+        check                                                   || expectedValue
+        ["~/path/to/test.keychain"]                             || true
+        ["~/path/to/test.keychain", "~/path/to/test2.keychain"] || true
+        ["~/path/to/test.keychain", "~/path/to/test4.keychain"] || false
+        ["~/path/to/test4.keychain"]                            || false
     }
 
     @Unroll
@@ -363,12 +341,12 @@ class MacOsKeychainSearchListSpec extends Specification {
         assert subject.size() == initialSize + 3
 
         when:
-        def result = subject.remove(new File(fileToRemove))
+        def result = subject.remove(KeychainRef.open(fileToRemove))
 
         then:
         result
         subject.size() == initialSize + 2
-        !subject.contains(new File(fileToRemove))
+        !subject.contains(KeychainRef.open(fileToRemove))
 
         where:
         fileToRemove                                    | message
@@ -386,20 +364,23 @@ class MacOsKeychainSearchListSpec extends Specification {
         subject.add(createTestKeychainFromPath("~/path/to/test3.keychain"))
         assert subject.size() == initialSize + 3
 
+        and: "files to remove converted"
+        def files = filesToRemove.collect { KeychainRef.open(it) }
+
         when:
-        def result = subject.removeAll(filesToRemove)
+        def result = subject.removeAll(files)
 
         then:
         result == hasChanges
         subject.size() == initialSize + expectedSize
-        !subject.containsAll(filesToRemove)
+        !subject.containsAll(files)
 
         where:
-        filesToRemove                                                               || expectedSize | hasChanges
-        [new File("~/path/to/test.keychain")]                                       || 2            | true
-        [new File("~/path/to/test.keychain"), new File("~/path/to/test2.keychain")] || 1            | true
-        [new File("~/path/to/test.keychain"), new File("~/path/to/test4.keychain")] || 2            | true
-        [new File("~/path/to/test4.keychain")]                                      || 3            | false
+        filesToRemove                                           || expectedSize | hasChanges
+        ["~/path/to/test.keychain"]                             || 2            | true
+        ["~/path/to/test.keychain", "~/path/to/test2.keychain"] || 1            | true
+        ["~/path/to/test.keychain", "~/path/to/test4.keychain"] || 2            | true
+        ["~/path/to/test4.keychain"]                            || 3            | false
     }
 
     @Unroll
@@ -477,7 +458,7 @@ class MacOsKeychainSearchListSpec extends Specification {
         when:
         def iter = subject.listIterator()
         iter.next()
-        iter.set(new File("some/file"))
+        iter.set(KeychainRef.open("some/file"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -494,7 +475,7 @@ class MacOsKeychainSearchListSpec extends Specification {
         when:
         def iter = subject.listIterator()
         iter.next()
-        iter.add(new File("some/file"))
+        iter.add(KeychainRef.open("some/file"))
 
         then:
         thrown(UnsupportedOperationException)
@@ -512,14 +493,14 @@ class MacOsKeychainSearchListSpec extends Specification {
         when:
         Iterator iter = subject.invokeMethod(method, null)
         while (iter.hasNext()) {
-            if (iter.next() == MacOsKeychainSearchList.canonical(new File("~/path/to/test2.keychain"))) {
+            if (iter.next() == KeychainRef.open("~/path/to/test2.keychain")) {
                 iter.remove()
             }
         }
 
         then:
         subject.size() == initialSize + 2
-        !subject.contains(new File("~/path/to/test2.keychain"))
+        !subject.contains(KeychainRef.open("~/path/to/test2.keychain"))
 
         where:
         type            | method
@@ -544,7 +525,7 @@ class MacOsKeychainSearchListSpec extends Specification {
 
         when:
         arr = subject.toArray()
-        subject.remove(new File("~/path/to/test2.keychain"))
+        subject.remove(KeychainRef.open("~/path/to/test2.keychain"))
 
         then:
         arr.length != subject.size()
@@ -572,14 +553,14 @@ class MacOsKeychainSearchListSpec extends Specification {
 
         when:
         arr = subject.toArray()
-        subject.remove(new File("~/path/to/test2.keychain"))
+        subject.remove(KeychainRef.open("~/path/to/test2.keychain"))
 
         then:
         arr.length != subject.size()
         !subject.containsAll(arr.findAll { it != null })
 
         where:
-        testArr << [new File[0], new File[3], new File[5]]
+        testArr << [new KeychainRef[0], new KeychainRef[3], new KeychainRef[5]]
     }
 
     def "retrieves item by index"() {
@@ -591,7 +572,7 @@ class MacOsKeychainSearchListSpec extends Specification {
         assert subject.size() == initialSize + 3
 
         expect:
-        subject[initialSize + 1] == MacOsKeychainSearchList.canonical(new File("~/path/to/test2.keychain"))
+        subject[initialSize + 1] == KeychainRef.open("~/path/to/test2.keychain")
     }
 
     @Unroll
@@ -607,14 +588,14 @@ class MacOsKeychainSearchListSpec extends Specification {
         expectedIndex = (expectedIndex >= 0) ? expectedIndex + initialSize : expectedIndex
 
         expect:
-        subject.invokeMethod(method, item) == expectedIndex
+        subject.invokeMethod(method, KeychainRef.open(item)) == expectedIndex
 
         where:
-        method        | item                                 | message                                | expectedIndex
-        "indexOf"     | new File("~/path/to/test2.keychain") | "index when item is contained in list" | 1
-        "indexOf"     | new File("~/path/to/test4.keychain") | "-1 when item can not be found"        | -1
-        "lastIndexOf" | new File("~/path/to/test2.keychain") | "index when item is contained in list" | 1
-        "lastIndexOf" | new File("~/path/to/test4.keychain") | "-1 when item can not be found"        | -1
+        method        | item                       | message                                | expectedIndex
+        "indexOf"     | "~/path/to/test2.keychain" | "index when item is contained in list" | 1
+        "indexOf"     | "~/path/to/test4.keychain" | "-1 when item can not be found"        | -1
+        "lastIndexOf" | "~/path/to/test2.keychain" | "index when item is contained in list" | 1
+        "lastIndexOf" | "~/path/to/test4.keychain" | "-1 when item can not be found"        | -1
     }
 
     def "creates a faulty sublist"() {
@@ -628,33 +609,4 @@ class MacOsKeychainSearchListSpec extends Specification {
         expect:
         subject.subList(1, 2).size() == 1
     }
-
-    @Ignore
-    def "reset "() {
-        given: "lookup list with multiple entries"
-        def initialSize = subject.size()
-        subject.add(createTestKeychainFromPath("~/path/to/test.keychain"))
-        subject.add(createTestKeychainFromPath("~/path/to/test2.keychain"))
-        subject.add(createTestKeychainFromPath("~/path/to/test3.keychain"))
-        assert subject.size() == initialSize + 3
-
-        and: "a custom reset list"
-        def originalDefaultKeychains = System.getenv("ATLAS_BUILD_UNITY_IOS_DEFAULT_KEYCHAINS")
-        environmentVariables.set("ATLAS_BUILD_UNITY_IOS_DEFAULT_KEYCHAINS", expectedKeychains.join(File.pathSeparator))
-
-        when:
-        subject.reset()
-
-        then:
-        subject.size() == expectedKeychains.size()
-        expectedKeychains.every { subject.contains(new File(it)) }
-
-        cleanup:
-        environmentVariables.set("ATLAS_BUILD_UNITY_IOS_DEFAULT_KEYCHAINS", originalDefaultKeychains)
-        MacOsKeychainSearchList.resetKeychains()
-
-        where:
-        expectedKeychains = ["~/path/to/test.keychain", "~/path/to/test3.keychain"]
-    }
-
 }

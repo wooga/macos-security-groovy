@@ -16,47 +16,70 @@
 
 package com.wooga.security
 
-import com.wooga.security.command.AddGenericPassword
-import com.wooga.security.command.AddInternetPassword
-import com.wooga.security.command.CreateKeychain
-import com.wooga.security.command.DeleteKeychain
-import com.wooga.security.command.FindCertificate
-import com.wooga.security.command.FindGenericPassword
-import com.wooga.security.command.FindIdentity
-import com.wooga.security.command.FindInternetPassword
-import com.wooga.security.command.FindKey
-import com.wooga.security.command.Import
-import com.wooga.security.command.LockKeychain
-import com.wooga.security.command.SetKeychainSettings
-import com.wooga.security.command.ShowKeychainInfo
-import com.wooga.security.command.UnlockKeychain
+import com.wooga.security.command.*
+import com.wooga.security.error.DuplicateKeychainException
+import com.wooga.security.error.InvalidKeychainException
+import com.wooga.security.error.NoSuchKeychainException
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.FromString
 
-class MacOsKeychain {
+class MacOsKeychain implements KeychainRef {
 
-    final File location
     final String password
+    final KeychainRef ref
 
-    MacOsKeychain(File location, String password) {
-        this.location = location
+    @Override
+    File getPath() {
+        ref.getPath()
+    }
+
+    @Override
+    long getRef() {
+        ref.ref
+    }
+
+    private MacOsKeychain(KeychainRef ref, String password) {
         this.password = password
+        this.ref = ref
+    }
+
+    static MacOsKeychain create(File location, String password) throws DuplicateKeychainException {
+        KeychainRef ref = KeychainRef.create(location, password);
+        return new MacOsKeychain(ref, password);
+    }
+
+    static MacOsKeychain create(File location, String password, MacOsKeychainSettings initialSettings) throws DuplicateKeychainException {
+        KeychainRef ref = KeychainRef.create(location, password, initialSettings);
+        return new MacOsKeychain(ref, password);
+    }
+
+    static MacOsKeychain open(File location) {
+        return open(location, null);
+    }
+
+    static MacOsKeychain open(File location, String password) {
+        KeychainRef ref = KeychainRef.open(location);
+        return new MacOsKeychain(ref, password);
+    }
+
+    static MacOsKeychain open(KeychainRef ref) {
+        return new MacOsKeychain(ref, null);
+    }
+
+    File getLocation() {
+        path
+    }
+
+    KeychainStatus getStatus() throws NoSuchKeychainException, InvalidKeychainException {
+        status(this)
     }
 
     Boolean unlock() {
-        try {
-            return new UnlockKeychain().withKeychain(this).withPassword(this.password).execute()
-        } catch (IOException ignored) {
-            return false
-        }
+        unlock(this, password).isUnlocked()
     }
 
     Boolean lock() {
-        try {
-            return new LockKeychain().withKeychain(this).execute()
-        } catch (IOException ignored) {
-            return false
-        }
+        lock(this).isLocked()
     }
 
     Boolean getLockWhenSystemSleeps() {
@@ -91,16 +114,11 @@ class MacOsKeychain {
     }
 
     MacOsKeychainSettings getSettings() {
-        new ShowKeychainInfo(this).execute()
+        getSettings(this)
     }
 
     Boolean setSettings(MacOsKeychainSettings settings) {
-        try {
-            new SetKeychainSettings().withKeychain(this).withSettings(settings).execute()
-        } catch (IOException ignored) {
-            return false
-        }
-        true
+        setSettings(this, settings)
     }
 
     Boolean addGenericPassword(String account, String service, String password, Map config = [:]) {
@@ -143,42 +161,31 @@ class MacOsKeychain {
     }
 
     Boolean delete() {
-        new DeleteKeychain().withKeychain(this).execute()
-        this.location.delete()
+        delete(this)
     }
 
-    Boolean exists() {
-        this.location.exists()
-    }
-
-    static MacOsKeychain create(File location, String password) {
-        new CreateKeychain(password, location).execute()
+    boolean exists() {
+        this.ref.exists()
     }
 
     @Override
     String toString() {
         return "MacOsKeychain{" +
+                "ref=" + ref +
                 "location=" + location +
                 '}';
     }
 
-    boolean equals(o) {
-        if (this.is(o)) return true
+    @Override
+    boolean equals(Object o) {
+        if (this == o) return true
         if (!(o instanceof MacOsKeychain)) return false
-
         MacOsKeychain that = (MacOsKeychain) o
-
-        if (location != that.location) return false
-        if (password != that.password) return false
-
-        return true
+        return getRef() == that.ref;
     }
 
+    @Override
     int hashCode() {
-        int result
-        result = (location != null ? location.hashCode() : 0)
-        result = 31 * result + (password != null ? password.hashCode() : 0)
-        return result
+        return Objects.hash(getRef())
     }
-
 }
