@@ -1,33 +1,16 @@
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
-task sourcesJar(type: Jar) {
-    archiveClassifier.set('sources')
-    from sourceSets.main.allSource
-}
-
-javadoc.failOnError = false
-task javadocJar(type: Jar) {
-    archiveClassifier.set('javadoc')
-    from javadoc
-}
-
-artifacts {
-    archives sourcesJar
-    archives javadocJar
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    withJavadocJar()
+    withSourcesJar()
 }
 
 publishing {
     publications {
-        main(MavenPublication) {
-            artifactId = project.name
+        it.create("main", MavenPublication) {MavenPublication publication ->
             from(components["java"])
-            artifact sourcesJar {
-                classifier "sources"
-            }
-            artifact javadocJar {
-                classifier "javadoc"
-            }
             pom {
                 name = 'macOS keychain helper library'
                 description = 'A helper library to work with the macOS keychain.'

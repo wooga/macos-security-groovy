@@ -58,6 +58,9 @@ jacocoTestReport {
     }
 }
 
+allprojects {
+
+}
 nexusPublishing {
     repositories {
         sonatype {
@@ -69,12 +72,16 @@ nexusPublishing {
 
 postRelease.dependsOn(tasks.publish)
 
-afterEvaluate {
-    tasks."final".dependsOn(tasks.publishToSonatype, tasks.closeAndReleaseSonatypeStagingRepository)
-    tasks."candidate".dependsOn(tasks.publishToSonatype, tasks.closeAndReleaseSonatypeStagingRepository)
-    tasks.publishToSonatype.mustRunAfter(tasks.postRelease)
-    tasks.closeSonatypeStagingRepository.mustRunAfter(tasks.publishToSonatype)
-    tasks.publish.mustRunAfter(tasks.release)
+allprojects {
+    afterEvaluate {
+        rootProject.tasks.postRelease.dependsOn(tasks.publish)
+        rootProject.tasks."final".dependsOn(tasks.publishToSonatype, rootProject.tasks.closeAndReleaseSonatypeStagingRepository)
+        rootProject.tasks."final".dependsOn(tasks.publishToSonatype, rootProject.tasks.closeAndReleaseSonatypeStagingRepository)
+        rootProject.tasks."candidate".dependsOn(tasks.publishToSonatype, rootProject.tasks.closeAndReleaseSonatypeStagingRepository)
+        tasks.publishToSonatype.mustRunAfter(rootProject.tasks.postRelease)
+        rootProject.tasks.closeSonatypeStagingRepository.mustRunAfter(tasks.publishToSonatype)
+        tasks.publish.mustRunAfter(rootProject.tasks.release)
+    }
 }
 
 apply from: 'publish-helper.gradle'
