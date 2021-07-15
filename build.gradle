@@ -41,7 +41,6 @@ if (cliTasks.contains("rc")) {
 }
 
 dependencies {
-    api project(":macos-security-jni")
     implementation 'org.codehaus.groovy:groovy-all:2.4.15'
     testImplementation 'com.github.stefanbirkner:system-rules:1.19.0'
     testImplementation 'org.spockframework:spock-core:1.2-groovy-2.4'
@@ -58,30 +57,14 @@ jacocoTestReport {
     }
 }
 
-allprojects {
-
-}
-nexusPublishing {
-    repositories {
-        sonatype {
-            username = project.hasProperty('ossrhUsername') ? project.property('ossrhUsername') : System.getenv('OSSRH_USERNAME')
-            password = project.hasProperty('ossrhPassword') ? project.property('ossrhPassword') : System.getenv('OSSRH_PASSWORD')
-        }
-    }
+nexusStaging {
+    username = project.hasProperty('ossrhUsername') ? project.property('ossrhUsername') : System.getenv('OSSRH_USERNAME')
+    password = project.hasProperty('ossrhPassword') ? project.property('ossrhPassword') : System.getenv('OSSRH_PASSWORD')
+    packageGroup = "com.wooga"
 }
 
 postRelease.dependsOn(tasks.publish)
-
-allprojects {
-    afterEvaluate {
-        rootProject.tasks.postRelease.dependsOn(tasks.publish)
-        rootProject.tasks."final".dependsOn(tasks.publishToSonatype, rootProject.tasks.closeAndReleaseSonatypeStagingRepository)
-        rootProject.tasks."final".dependsOn(tasks.publishToSonatype, rootProject.tasks.closeAndReleaseSonatypeStagingRepository)
-        rootProject.tasks."candidate".dependsOn(tasks.publishToSonatype, rootProject.tasks.closeAndReleaseSonatypeStagingRepository)
-        tasks.publishToSonatype.mustRunAfter(rootProject.tasks.postRelease)
-        rootProject.tasks.closeSonatypeStagingRepository.mustRunAfter(tasks.publishToSonatype)
-        tasks.publish.mustRunAfter(rootProject.tasks.release)
-    }
-}
-
-apply from: 'publish-helper.gradle'
+tasks."final".dependsOn(tasks.closeAndReleaseRepository)
+tasks."candidate".dependsOn(tasks.closeAndReleaseRepository)
+tasks.closeAndReleaseRepository.mustRunAfter(tasks.postRelease)
+tasks.publish.mustRunAfter(tasks.release)

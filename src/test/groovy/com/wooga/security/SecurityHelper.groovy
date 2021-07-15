@@ -38,15 +38,7 @@ class SecurityHelper {
     }
 
     static MacOsKeychainSettings getKeychainSettings(File location) {
-        def output = getKeychainSettingsRaw(location)
-        Boolean lockWhenSystemSleep = output.contains("lock-on-sleep")
-        Integer timeout = -1
-        def m = (output.trim() =~ /.*timeout=(\d+)s.*/)
-        if (m.matches()) {
-            timeout = Integer.parseInt(m.group(1))
-        }
-
-        new MacOsKeychainSettings(lockWhenSystemSleep, timeout)
+        MacOsKeychainSettings.fromOutput(getKeychainSettingsRaw(location))
     }
 
     static String findPrivateKey(File location, String name) {
