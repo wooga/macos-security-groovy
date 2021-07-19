@@ -74,7 +74,7 @@ class ShowKeychainInfoSpec extends SecurityCommandSpec<ShowKeychainInfo> {
         where:
         type                | value
         File.class          | new File("some/file")
-        MacOsKeychain.class | MacOsKeychain.open(new File("some/file"), "pw")
+        MacOsKeychain.class | new MacOsKeychain(new File("some/file"), "pw")
     }
 }
 

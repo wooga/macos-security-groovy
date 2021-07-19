@@ -2,9 +2,6 @@
 /build/
 /out/
 
-macos-security-jni/build/
-macos-security-jni/macos-security-jni.xcodeproj
-
 # Ignore Gradle GUI config
 gradle-app.setting
 

@@ -17,8 +17,10 @@
 package com.wooga.security
 
 import com.wooga.security.command.FindIdentity
+import spock.lang.Ignore
 import spock.lang.Requires
 import spock.lang.Specification
+import spock.lang.Unroll
 
 import static com.wooga.security.SecurityHelper.*
 
@@ -26,40 +28,37 @@ import static com.wooga.security.SecurityHelper.*
 class MacOsKeychainSpec extends Specification {
     def path = new File(File.createTempDir("test", "keychain"), "test.keychain")
     def keychainPassword = "12345"
-    def initialSettings = new MacOsKeychainSettings(true, 60000)
-    def keychain = MacOsKeychain.create(path, keychainPassword, initialSettings)
+    def keychain = MacOsKeychain.create(path, keychainPassword)
 
     def cleanup() {
         keychain.delete()
     }
 
+    @Ignore("This case can't be tested as macOS prompts for a password when keychain is locked")
     def "convenient method lock locks keychain"() {
-        given: "an unlocked keychain"
-        keychain.unlock()
-        assert keychain.status.isUnlocked()
-
         when:
         keychain.lock()
 
         then:
-        keychain.status.isLocked()
+        !keychain.setLockWhenSystemSleeps(false)
     }
 
     def "convenient method unlock unlocks keychain"() {
-        given: "a locked keychain"
-        keychain.lock()
-        assert keychain.status.isLocked()
-
         when:
-        keychain.unlock()
+        assert keychain.unlock()
 
         then:
-        keychain.status.isUnlocked()
+        keychain.setLockWhenSystemSleeps(true)
     }
 
     def "convenient method getSettings sets keychain settings"() {
+        given:
+        def settings = keychain.getSettings()
+
         expect:
-        keychain.getSettings() == initialSettings
+        settings.timeout == 300
+        settings.lockWhenSystemSleeps
+        settings.lockAfterTimeout
     }
 
     def "convenient method setSettings sets keychain settings"() {
@@ -77,43 +76,25 @@ class MacOsKeychainSpec extends Specification {
         newSettings == settings
     }
 
-    def ":getTimout returns value from settings"() {
-        given: "a settings object"
-        assert initialSettings != settings
+    @Unroll()
+    def "property #property returns value from settings"() {
+        given:
+        def oldSettings = keychain.getSettings()
+        and: "a settings object"
+        assert oldSettings != settings
         keychain.setSettings(settings)
+        assert oldSettings.getProperty(property) != settings.getProperty(property)
 
         when:
-        def value = keychain.timeout
+        def value = keychain.getProperty(property)
 
         then:
-        value == settings.timeout
+        value == settings.getProperty(property)
 
         where:
-        settings = new MacOsKeychainSettings(false, 1000)
-    }
-
-    def ":getLockAfterTimeout returns value from settings"() {
-        given: "a settings object"
-        assert initialSettings != settings
-        keychain.setSettings(settings)
-
-        expect:
-        keychain.lockAfterTimeout == settings.getLockAfterTimeout()
-
-        where:
-        settings = new MacOsKeychainSettings(true, 1000)
-    }
-
-    def ":getLockWhenSystemSleeps returns value from settings"() {
-        given: "a settings object"
-        assert initialSettings != settings
-        keychain.setSettings(settings)
-
-        expect:
-        keychain.lockWhenSystemSleeps == settings.getLockWhenSystemSleeps()
-
-        where:
-        settings = new MacOsKeychainSettings(false, 1000)
+        property               | settings
+        "lockWhenSystemSleeps" | new MacOsKeychainSettings(false, 1000)
+        "timeout"              | new MacOsKeychainSettings(false, 100)
     }
 
     def "convenient method addInternetPassword adds new password item to keychain"() {
