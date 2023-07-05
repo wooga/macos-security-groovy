@@ -39,7 +39,6 @@ trait MultiKeychainCommand<T extends SecurityCommand> {
     List<String> getMultiKeychainsArgument() {
         def arguments = []
         if (!keychains.empty) {
-            SecurityCommand.validateKeychainsProperty(keychains)
             arguments.addAll(keychains.collect({ it.path }))
         }
         arguments

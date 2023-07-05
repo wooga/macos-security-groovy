@@ -210,12 +210,23 @@ class SecurityHelper {
         createTestCertificatePkcs12(options, key, cert, password)
     }
 
+    static String[] readOpensslVersion() {
+        def p = ['openssl', 'version'].execute()
+        if(p.waitFor() == 0) {
+            def output = p.inputStream.withCloseable {it.readLines().join("\n") }
+            return output.split(" ")[0..1]
+        }
+        return ["", ""]
+    }
+
     static File createTestCertificatePkcs12(Map options = [:], File key, File cert, String password) {
+        def opensslVersion = readOpensslVersion()
         Map defaultOptions = [privateKeyName: "Test Certificate"]
         options = defaultOptions << options
         def tempOutputDir = File.createTempDir()
         def p12 = new File(tempOutputDir, "cert.p12")
         def args = ['openssl', 'pkcs12',
+                     //apple doesn't support openssl3 format
                     '-export',
                     '-in', cert.path,
                     '-inkey', key.path,
@@ -223,6 +234,9 @@ class SecurityHelper {
                     '-name', options['privateKeyName'],
                     '-passout', "pass:${password}"
         ]
+        if(opensslVersion[1].startsWith("3") && opensslVersion[0].toLowerCase() == "openssl") {
+            args.add('-legacy')
+        }
         if (args.execute().waitFor() == 0) {
             return p12
         }
