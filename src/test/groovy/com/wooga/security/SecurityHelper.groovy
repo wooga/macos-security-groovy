@@ -216,6 +216,7 @@ class SecurityHelper {
         def tempOutputDir = File.createTempDir()
         def p12 = new File(tempOutputDir, "cert.p12")
         def args = ['openssl', 'pkcs12',
+                    '-legacy', //apple doesn't support openssl3 format
                     '-export',
                     '-in', cert.path,
                     '-inkey', key.path,
