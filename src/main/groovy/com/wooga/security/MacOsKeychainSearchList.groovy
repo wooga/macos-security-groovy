@@ -18,6 +18,9 @@ package com.wooga.security
 
 import com.wooga.security.command.DefaultKeychain
 import com.wooga.security.command.ListKeychains
+import com.wooga.security.command.SecurityCommand
+
+import java.util.stream.Collectors
 
 class MacOsKeychainSearchList implements List<File>, Set<File> {
 
@@ -108,8 +111,12 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         this.domain = domain
     }
 
-    private static List<File> listKeychains(Domain domain) {
-        new ListKeychains().withDomain(domain).execute()
+    private static List<File> listKeychains(Domain domain, boolean includeMissingFiles=false) {
+        def allKeychains = new ListKeychains().withDomain(domain).execute()
+        if(!includeMissingFiles) {
+            return allKeychains.findAll {it.isFile() && it.exists() }
+        }
+        return allKeychains
     }
 
     private static void setKeychains(Iterable<File> keychains, Domain domain) {
@@ -157,7 +164,10 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     boolean add(File keychain) {
         Objects.requireNonNull(keychain)
         keychain = canonical(keychain)
-        def keychains = listKeychains(domain)
+        SecurityCommand.validateKeychainProperty(keychain)
+        //We don't want to remove any potential keychain with a missing file by accident.
+        //This is valid for all write operation in this class (that uses setKeychains)
+        def keychains = listKeychains(domain, true)
         if (!keychains.contains(keychain) && keychains.add(keychain)) {
             setKeychains(keychains, domain)
             return true
@@ -174,7 +184,7 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
         }
 
         File k = canonical(o as File)
-        def keychains = listKeychains(domain)
+        def keychains = listKeychains(domain, true)
         if (keychains.remove(k)) {
             setKeychains(keychains, domain)
             return true
@@ -197,7 +207,8 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
     @Override
     boolean addAll(Collection<? extends File> c) {
         Objects.requireNonNull(c)
-        def keychains = listKeychains(domain)
+        SecurityCommand.validateKeychainsProperty(c)
+        def keychains = listKeychains(domain, true)
         if (keychains.addAll(c)) {
             setKeychains(keychains, domain)
             return true
@@ -219,7 +230,7 @@ class MacOsKeychainSearchList implements List<File>, Set<File> {
             }
             canonical(it as File)
         }
-        def keychains = listKeychains(domain)
+        def keychains = listKeychains(domain, true)
         def result = keychains.removeAll(keychainsToRemove)
         new ListKeychains().withDomain(domain).withKeychains(keychains).setKeychainSearchList().execute()
         result

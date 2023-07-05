@@ -41,7 +41,10 @@ trait FindPassword<T extends SecurityCommand> extends MultiKeychainCommand<T> {
         if (printPasswordOnly) {
             arguments << "-w"
         }
-        arguments.addAll(getMultiKeychainsArgument())
+        if(!keychains.empty) {
+            SecurityCommand.validateKeychainsProperty(keychains)
+            arguments.addAll(getMultiKeychainsArgument())
+        }
         arguments
     }
 }

@@ -33,28 +33,6 @@ class ListKeychainsSpec extends SecurityCommandSpec<ListKeychains> {
         !result.empty
     }
 
-    @Unroll("fails with #expectedExeption when #reason")
-    def "fails with exception when property is invalid"() {
-        given: "invalid keychain"
-        command.setProperty(property, value)
-        command.setKeychainSearchList()
-
-        when:
-        command.execute()
-
-        then:
-        def e = thrown(expectedExeption)
-        e.message.matches(messagePattern)
-
-        where:
-        property    | value                    | expectedExeption               | message
-        "keychains" | [new File("/some/file")] | IllegalArgumentException.class | "does not exist"
-        "keychains" | [File.createTempDir()]   | IllegalArgumentException.class | "is not a file"
-
-        reason = "provided ${property} ${message}"
-        messagePattern = /provided keychain.*${message}/
-    }
-
     @Unroll("property #property sets commandline flag #commandlineFlag")
     def "property sets commandline"() {
         given: "set property"

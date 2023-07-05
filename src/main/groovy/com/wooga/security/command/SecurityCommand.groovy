@@ -113,7 +113,7 @@ abstract class SecurityCommand<T> {
         validateFileProperty(keychain, "keychain")
     }
 
-    static void validateKeychainsProperty(List<File> keychains) {
+    static void validateKeychainsProperty(Collection<? extends File> keychains) {
         keychains.each {
             validateKeychainProperty(it)
         }

@@ -16,6 +16,7 @@
 
 package com.wooga.security
 
+import com.wooga.security.command.ListKeychains
 import org.junit.Rule
 import org.junit.contrib.java.lang.system.EnvironmentVariables
 import org.junit.contrib.java.lang.system.ProvideSystemProperty
@@ -75,6 +76,26 @@ class MacOsKeychainSearchListSpec extends Specification {
         expect:
         subject.size() != 0
         !subject.isEmpty()
+    }
+
+    @Unroll("add/addAll operation fails with #expectedExeption when #reason")
+    def "add operation fails with exception when property is invalid"() {
+        when:
+        subject.add(value)
+
+        then:
+        def e = thrown(expectedExeption)
+        e.message.matches(messagePattern)
+
+        where:
+        operation                      | property   | value                  | expectedExeption               | message
+        { -> subject.add(value) }       | "keychain" | new File("/some/file") | IllegalArgumentException.class | "does not exist"
+        { -> subject.add(value) }       | "keychain" | File.createTempDir()   | IllegalArgumentException.class | "is not a file"
+        { -> subject.addAll([value]) }  | "keychain" | new File("/some/file") | IllegalArgumentException.class | "does not exist"
+        { -> subject.addAll([value]) }  | "keychain" | File.createTempDir()   | IllegalArgumentException.class | "is not a file"
+
+        reason = "provided ${property} ${message}"
+        messagePattern = /provided ${property}.*${message}/
     }
 
     def "adds a single keychain to the lookup list"() {
@@ -174,6 +195,53 @@ class MacOsKeychainSearchListSpec extends Specification {
         "add"         | "test"     | ClassCastException        | "object is not a java.io.File"
         "get"         | 22         | IndexOutOfBoundsException | "index is out of bounds"
     }
+
+    def "doesn't read keys with non-existent files"() {
+        given: "a keychain with a qnon-existing key file"
+        def nonExistentKeychain = MacOsKeychainSearchList.canonical(createTestKeychain("keychain_to_be_deleted"))
+        assert subject.add(nonExistentKeychain)
+        assert new ListKeychains().withDomain(Domain.user).execute().contains(nonExistentKeychain)
+
+        when: "deleting keychain key file"
+        nonExistentKeychain.delete()
+
+        then: "keychain with non-existing file is not there in all read operations"
+        !nonExistentKeychain.exists()
+        !subject.contains(nonExistentKeychain)
+        !subject.containsAll([nonExistentKeychain])
+        !subject.iterator().find { it == nonExistentKeychain }
+        !subject.toArray().contains(nonExistentKeychain)
+        !subject.toArray(new File[0]).contains(nonExistentKeychain)
+        !(subject.get(subject.size() - 1) == nonExistentKeychain)
+        !(subject.indexOf(nonExistentKeychain) > -1)
+        !(subject.lastIndexOf(nonExistentKeychain) > -1)
+        !(subject.listIterator().find { it == nonExistentKeychain })
+        !(subject.listIterator(0).find { it == nonExistentKeychain })
+        !subject.subList(0, subject.size()).contains(nonExistentKeychain)
+    }
+
+    @Unroll
+    def "#operationName doesn't remove any key associated with a non-existent file"() {
+        given:
+        def nonExistentKeychain = MacOsKeychainSearchList.canonical(createTestKeychain("keychain_to_be_deleted"))
+        assert subject.add(nonExistentKeychain)
+        assert new ListKeychains().withDomain(Domain.user).execute().contains(nonExistentKeychain)
+        assert nonExistentKeychain.delete()
+
+        when:
+        operation.call()
+        then:
+        def allKeychains = new ListKeychains().withDomain(Domain.user).execute()
+        allKeychains.contains(nonExistentKeychain)
+
+        where:
+        operation                                             | operationName
+        subject.&add.curry(createTestKeychain("any"))         | "add"
+        subject.&addAll.curry([createTestKeychain("any")])    | "addAll"
+        subject.&remove.curry(createTestKeychain("any"))      | "remove"
+        subject.&removeAll.curry([createTestKeychain("any")]) | "removeAll"
+    }
+
 
     // need to unroll these cases by hand because `invokeMethod` calls them with:
     // - non null default buildArguments
