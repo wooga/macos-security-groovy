@@ -88,11 +88,12 @@ class MacOsKeychainSearchListSpec extends Specification {
         e.message.matches(messagePattern)
 
         where:
-        operation                      | property   | value                  | expectedExeption               | message
-        { -> subject.add(value) }       | "keychain" | new File("/some/file") | IllegalArgumentException.class | "does not exist"
-        { -> subject.add(value) }       | "keychain" | File.createTempDir()   | IllegalArgumentException.class | "is not a file"
-        { -> subject.addAll([value]) }  | "keychain" | new File("/some/file") | IllegalArgumentException.class | "does not exist"
-        { -> subject.addAll([value]) }  | "keychain" | File.createTempDir()   | IllegalArgumentException.class | "is not a file"
+        //Spock2 gets confused when column starts with a closure, so adding empty column to avoid that (https://github.com/spockframework/spock/issues/1269)
+        _ | operation                       | property   | value                  | expectedExeption               | message
+        _ | { -> subject.add(value) }       | "keychain" | new File("/some/file") | IllegalArgumentException.class | "does not exist"
+        _ | { -> subject.add(value) }       | "keychain" | File.createTempDir()   | IllegalArgumentException.class | "is not a file"
+        _ | { -> subject.addAll([value]) }  | "keychain" | new File("/some/file") | IllegalArgumentException.class | "does not exist"
+        _ | { -> subject.addAll([value]) }  | "keychain" | File.createTempDir()   | IllegalArgumentException.class | "is not a file"
 
         reason = "provided ${property} ${message}"
         messagePattern = /provided ${property}.*${message}/

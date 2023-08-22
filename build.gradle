@@ -42,10 +42,16 @@ if (cliTasks.contains("rc")) {
     project.rootProject.gradle.startParameter.setTaskNames(cliTasks)
 }
 
+test {
+    useJUnitPlatform()
+}
+
+
 dependencies {
-    implementation 'org.codehaus.groovy:groovy-all:2.5.16'
+    implementation 'org.codehaus.groovy:groovy-all:3.0.13'
     testImplementation 'com.github.stefanbirkner:system-rules:[1.19.0,2)'
-    testImplementation 'org.spockframework:spock-core:1.3-groovy-2.5'
+    testImplementation 'org.spockframework:spock-core:2.3-groovy-3.0'
+    testImplementation 'org.spockframework:spock-junit4:2.3-groovy-3.0'
 }
 
 repositories {
